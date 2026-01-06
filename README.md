@@ -1,8 +1,13 @@
 # ThyraOS UEFI Application
 
-ThyraOS currently starts as a simple UEFI application for testing low-level concepts, with plans to evolve into a bootloader and basic kernel.
+<div align="center"> 
+   <img src="docs/qemu-uefi-boot.png" alt="Banner"> 
+   <br>
+   <br>
+   <b>ThyraOS currently starts as a simple UEFI application for testing low-level concepts, with plans to evolve into a bootloader and basic kernel.</b>
+</div>
 
----
+<br>
 
 ## Build Instructions
 
