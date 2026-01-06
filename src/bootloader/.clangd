@@ -1,0 +1,23 @@
+CompileFlags:
+  Add:
+    # internal headers
+    - -I./
+
+    # external headers
+    - -isystem 
+    - "/mnt/c/Libraries/gnu-efi/inc"
+   
+    # gnuefi required defines
+    - -DGNU_EFI
+    - -DEFI_FUNCTION_WRAPPER
+    - -D__EFI__
+
+    # architecture
+    - -D__x86_64__
+    
+    # optional build flags
+    - -DEFI_DEBUG
+    - -DEFI32
+    
+    # compiler flags
+    - -std=c++26
