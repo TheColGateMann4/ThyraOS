@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Handling version type
+BUILD_TYPE="release"
+isDebugVersion=false
+if [[ "${1:-}" == "-debug" ]]; then
+	BUILD_TYPE="debug"
+	isDebugVersion=true
+elif [[ "${1:-}" == "-release" ]]; then
+	BUILD_TYPE="release"
+elif [[ -n "${1:-}" ]]; then
+	echo "Usage: $0 [-debug|-release]"
+	exit 1
+fi
+
+EFI_PATH="build/$BUILD_TYPE/src/bootloader/bootloader.efi"
+if [[ ! -f "$EFI_PATH" ]]; then
+	echo "Error: EFI binary not found at $EFI_PATH"
+	exit 1
+fi
+echo "Running $BUILD_TYPE EFI: $EFI_PATH"
+
+# Create temporary FAT file
+TMP_IMG=$(mktemp bootloader_XXXX.img)
+
+if $isDebugVersion; then
+	TMP_LOG=$(mktemp)
+	trap 'rm -f "$TMP_IMG" "$TMP_LOG"' EXIT
+	echo "log created at: $TMP_LOG"
+else
+	trap 'rm -f "$TMP_IMG"' EXIT
+fi
+
+dd if=/dev/zero of="$TMP_IMG" bs=1M count=10
+mkfs.vfat "$TMP_IMG" # using fat16 for qemu compability, unsure why it doesn't handle fat32 yet
+
+# Copy EFI file
+mmd -i "$TMP_IMG" ::/EFI
+mmd -i "$TMP_IMG" ::/EFI/BOOT
+mcopy -i "$TMP_IMG" "$EFI_PATH" ::/EFI/BOOT/BOOTX64.EFI
+
+# Show FAT contents
+echo "FAT image contents:"
+mdir -i "$TMP_IMG" ::
+mdir -i "$TMP_IMG" ::/EFI
+mdir -i "$TMP_IMG" ::/EFI/BOOT
+
+# Building flags
+QEMU_FLAGS=(
+	-drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd 
+	-drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_VARS_4M.fd 
+	-drive file="$TMP_IMG",format=raw,if=ide,media=disk 
+	-boot menu=off 
+	-serial stdio 
+	-m 512M
+)
+
+# Adding logging and log file for debug version
+if $isDebugVersion; then
+	QEMU_FLAGS+=(
+		-D qemu_uefi.log 
+		-d int 
+	)
+fi
+
+# Launching qemu
+sudo qemu-system-x86_64 "${QEMU_FLAGS[@]}"
