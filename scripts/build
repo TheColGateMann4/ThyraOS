@@ -1,3 +1,16 @@
+#!/usr/bin/env bash
+
+BUILD_TYPE="release"
+
+if [[ "${1:-}" == "-debug" ]]; then
+	BUILD_TYPE="debug"
+elif [[ "${1:-}" == "-release" ]]; then
+	BUILD_TYPE="release"
+elif [[ -n "${1:-}" ]]; then
+	echo "Usage: $0 [-debug|-release]"
+	exit 1
+fi
+
 rm -r build
-cmake --preset debug
-cmake --build --preset debug
+cmake --preset $BUILD_TYPE
+cmake --build --preset $BUILD_TYPE
