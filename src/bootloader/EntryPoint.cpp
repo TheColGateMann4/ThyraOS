@@ -1,5 +1,6 @@
-#include <efi.h>
-#include <efilib.h>
+#include "includes/efi_includes.h"
+
+#include "Graphics.h"
 
 extern "C" int _fltused = 0;
 
@@ -13,23 +14,7 @@ EFI_STATUS efi_main(
 
 	AsciiPrint((CHAR8*)"Hello from ThyraOS!\n");
 
-	EFI_GRAPHICS_OUTPUT_PROTOCOL* gop = nullptr;
-
-	EFI_GUID graphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
-	SystemTable->BootServices->LocateProtocol(
-		&graphicsOutputProtocolGuid,
-		nullptr,
-		(void**)&gop
-	);
-
-	EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE* gopMode = gop->Mode;
-	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION* gopInformation = gopMode->Info;
-
-	UINT32 horizontalResolution = gopInformation->HorizontalResolution;
-	UINT32 verticalResolution = gopInformation->VerticalResolution;
-
-
-	AsciiPrint((CHAR8*)"Screen Resolution is %dx%d", horizontalResolution, verticalResolution);
+	Graphics graphics(SystemTable);
 
 	while (true) 
 	{
