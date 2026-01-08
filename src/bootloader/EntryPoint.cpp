@@ -1,3 +1,4 @@
+#include "includes/cpp_includes.h"
 #include "includes/efi_includes.h"
 
 #include "Graphics.h"
@@ -15,6 +16,8 @@ EFI_STATUS efi_main(
 	AsciiPrint((CHAR8*)"Hello from ThyraOS!\n");
 
 	Graphics graphics(SystemTable);
+
+	graphics.Draw();
 
 	while (true) 
 	{

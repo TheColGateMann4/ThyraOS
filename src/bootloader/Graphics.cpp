@@ -2,7 +2,6 @@
 
 Graphics::Graphics(EFI_SYSTEM_TABLE* SystemTable)
 {
-
 	EFI_GUID graphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 	SystemTable->BootServices->LocateProtocol(
 		&graphicsOutputProtocolGuid,
@@ -10,22 +9,53 @@ Graphics::Graphics(EFI_SYSTEM_TABLE* SystemTable)
 		(void**)&m_gop
 	);
 
-	EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE* gopMode = m_gop->Mode;
-	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION* gopInformation = gopMode->Info;
 
-	m_screenWidth = gopInformation->HorizontalResolution;
-	m_screenHeight = gopInformation->VerticalResolution;
-	UINT32 maxMode = gopMode->MaxMode;
+	m_displayModeInformations = GetBestDisplayMode();
 
 
-	EFI_GRAPHICS_PIXEL_FORMAT pixelFormat = gopInformation->PixelFormat;
-	EFI_PIXEL_BITMASK pixelBitmask = gopInformation->PixelInformation;          
-	
-	AsciiPrint((CHAR8*)"Screen Resolution is %dx%d\n", m_screenWidth, m_screenHeight);
+	EFI_STATUS result = m_gop->SetMode(
+		m_gop,
+		m_displayModeInformations.index
+	);
 
+	AsciiPrint((CHAR8*)"Selected Mode %d with resolution %dx%d\n", m_displayModeInformations.index, m_displayModeInformations.width, m_displayModeInformations.height);
 
-	void* allocatedMemory = AllocatePool(m_screenWidth * m_screenHeight * sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
+	void* allocatedMemory = AllocatePool(m_displayModeInformations.width * m_displayModeInformations.width * sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
 	m_pixelBuffer = static_cast<EFI_GRAPHICS_OUTPUT_BLT_PIXEL*>(allocatedMemory);
+}
+
+
+void Graphics::Draw() const
+{
+	EFI_STATUS result = m_gop->Blt(
+		m_gop,
+		m_pixelBuffer,
+		EfiBltBufferToVideo,
+		0,
+		0,
+		0,
+		0,
+		static_cast<UINTN>(m_displayModeInformations.width),
+		static_cast<UINTN>(m_displayModeInformations.height),
+		0
+	);
+}
+
+Graphics::DisplayModeInformations Graphics::GetBestDisplayMode() const
+{
+	EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE* defaultMode = m_gop->Mode;
+	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION* gopInformation = defaultMode->Info;
+
+	UINT32 maxMode = defaultMode->MaxMode;
+
+	DisplayModeInformations bestDisplayOptions = {
+		.index = 0,
+		.width = gopInformation->HorizontalResolution,
+		.height = gopInformation->VerticalResolution
+	};
+
+	float nativeAspectRatio = static_cast<float>(bestDisplayOptions.width) / static_cast<float>(bestDisplayOptions.height);
+	float epsilon = 1e-4f;
 
 	for(int i = 0;i < maxMode; i++)
 	{
@@ -48,9 +78,9 @@ Graphics::Graphics(EFI_SYSTEM_TABLE* SystemTable)
 
 		UINT32 expectedSizeOfModelInformation = sizeof(EFI_GRAPHICS_OUTPUT_MODE_INFORMATION);
 
-		if(sizeOfModeInformation != expectedSizeOfModelInformation )
+		if(sizeOfModeInformation < expectedSizeOfModelInformation)
 		{
-			AsciiPrint((CHAR8*)"size of model information was %d instead of %d\n", sizeOfModeInformation, expectedSizeOfModelInformation);
+			AsciiPrint((CHAR8*)"Model information was too small. %d instead of %d\n", sizeOfModeInformation, expectedSizeOfModelInformation);
 
 			continue;
 		}
@@ -64,28 +94,19 @@ Graphics::Graphics(EFI_SYSTEM_TABLE* SystemTable)
 			modeInformation->PixelsPerScanLine
 		);
 
+		float currentAspectRatio = static_cast<float>(modeInformation->HorizontalResolution) / static_cast<float>(modeInformation->VerticalResolution);
+
+		if(modeInformation->HorizontalResolution > bestDisplayOptions.width  && abs(currentAspectRatio - nativeAspectRatio) < epsilon) 
+		{
+			bestDisplayOptions.index = i;
+			bestDisplayOptions.width = modeInformation->HorizontalResolution;
+			bestDisplayOptions.height = modeInformation->VerticalResolution;
+
+			nativeAspectRatio = static_cast<float>(bestDisplayOptions.width) / static_cast<float>(bestDisplayOptions.height);
+		}
+
 		FreePool(modeInformation);
 	}
 
-	// EFI_STATUS result = m_gop->SetMode(
-	// 	m_gop,
-	// 	1
-	// );
-}
-
-
-void Graphics::Draw() const
-{
-	EFI_STATUS result = m_gop->Blt(
-		m_gop,
-		m_pixelBuffer,
-		EfiBltBufferToVideo,
-		0,
-		0,
-		0,
-		0,
-		static_cast<UINTN>(m_screenWidth),
-		static_cast<UINTN>(m_screenHeight),
-		0
-	);
+	return bestDisplayOptions;
 }
