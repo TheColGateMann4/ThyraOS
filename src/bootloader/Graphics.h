@@ -18,6 +18,7 @@ public:
 
 private:
 	DisplayModeInformations GetBestDisplayMode() const;
+	DisplayModeInformations GetDefaultDisplayMode() const;
 
 private:
 	EFI_GRAPHICS_OUTPUT_BLT_PIXEL* m_pixelBuffer = nullptr; 

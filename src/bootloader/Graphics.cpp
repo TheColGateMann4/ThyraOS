@@ -10,8 +10,11 @@ Graphics::Graphics(EFI_SYSTEM_TABLE* SystemTable)
 	);
 
 
+#ifdef NDEBUG
 	m_displayModeInformations = GetBestDisplayMode();
-
+#else
+	m_displayModeInformations = GetDefaultDisplayMode();
+#endif
 
 	EFI_STATUS result = m_gop->SetMode(
 		m_gop,
@@ -22,6 +25,22 @@ Graphics::Graphics(EFI_SYSTEM_TABLE* SystemTable)
 
 	void* allocatedMemory = AllocatePool(m_displayModeInformations.width * m_displayModeInformations.width * sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
 	m_pixelBuffer = static_cast<EFI_GRAPHICS_OUTPUT_BLT_PIXEL*>(allocatedMemory);
+
+	for(int x = 0; x < m_displayModeInformations.width; x++)
+		for(int y = 0; y < m_displayModeInformations.width; y++)
+		{
+			EFI_GRAPHICS_OUTPUT_BLT_PIXEL pixelData(0, 0, 0, 0);
+			float group = static_cast<float>(x % 30) / 10;
+			
+			if(group < 1.0f)
+				pixelData.Red = 255;
+			else if(group <= 2.0f)
+				pixelData.Green = 255;		
+			else if(group <= 3.0f)
+				pixelData.Blue = 255;		
+
+			m_pixelBuffer[x + y * m_displayModeInformations.width] = pixelData;
+		}
 }
 
 
@@ -109,4 +128,27 @@ Graphics::DisplayModeInformations Graphics::GetBestDisplayMode() const
 	}
 
 	return bestDisplayOptions;
+}
+
+
+Graphics::DisplayModeInformations Graphics::GetDefaultDisplayMode() const
+{
+	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION* modeInformation = nullptr; 
+	UINTN sizeOfModeInformation = 0;
+
+	EFI_STATUS result = m_gop->QueryMode(
+		m_gop,
+		0,
+		&sizeOfModeInformation,
+		&modeInformation
+	);
+
+	if(result != EFI_SUCCESS)
+		AsciiPrint((CHAR8*)"Failed to get default display mode");
+
+	return DisplayModeInformations{
+		.index = 0,
+		.width = modeInformation->HorizontalResolution,
+		.height = modeInformation->VerticalResolution
+	};
 }
